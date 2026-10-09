@@ -91,10 +91,10 @@ export default function Navbar() {
         </div>
 
         {/* Live Ops Beacon */}
-        <div className="hidden lg:flex items-center space-x-2 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-full text-xs font-mono text-emerald-400">
+        {/* <div className="hidden lg:flex items-center space-x-2 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-full text-xs font-mono text-emerald-400">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
           <span>LIVE SYSTEMS</span>
-        </div>
+        </div> */}
       </div>
 
       {/* Middle: Live Clock & Mode Switcher */}
