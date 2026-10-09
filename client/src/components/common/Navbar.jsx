@@ -124,7 +124,7 @@ export default function Navbar() {
       <div className="flex items-center space-x-2 md:space-x-3">
         {/* Quick Demo Role Switcher */}
         <div className="hidden xl:flex items-center space-x-1 bg-command-950 p-1 rounded-lg border border-command-800 text-xs">
-          <span className="text-[10px] text-slate-500 px-2 uppercase tracking-wide">Switch role</span>
+          {/* <span className="text-[10px] text-slate-500 px-2 uppercase tracking-wide">Switch role</span> */}
           <button
             onClick={() => handleQuickSwitch('ADMIN')}
             disabled={switchLoading}
