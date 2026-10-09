@@ -1,0 +1,2852 @@
+<USER_REQUEST>
+You are a senior full-stack engineer and system architect.
+
+Build a production-quality MERN-stack web application called:
+
+WATERFLEET OS
+"Water Scarcity Response, Fleet Tracking & Emergency Distribution Platform"
+
+The application is designed for cities/municipalities facing water shortages.
+
+The platform coordinates:
+1. Citizens who report water shortages
+2. Administrators/operators who validate and assign requests
+3. Drivers who operate water tankers/vehicles
+4. Vehicles/tankers that deliver water
+5. Real-time fleet tracking
+6. Task assignment and lifecycle management
+7. Emergency prioritization
+8. Delivery verification
+9. Operational analytics
+
+The system should NOT look like a generic CRUD dashboard.
+
+It should feel like a real operational command center for managing water scarcity incidents.
+
+==================================================
+1. TECHNOLOGY REQUIREMENTS
+==================================================
+
+Use JavaScript only.
+
+DO NOT use TypeScript.
+
+Frontend:
+- React
+- Vite
+- JavaScript
+- Tailwind CSS
+- React Router
+- Zustand for global state where needed
+- Socket.IO client
+- Fetch API instead of Axios
+- Recharts or another lightweight charting library
+- Lucide React icons
+
+Backend:
+- Node.js
+- Express.js
+- JavaScript
+- MongoDB
+- Mongoose
+- Socket.IO
+- JWT authentication
+- bcrypt
+- dotenv
+- express-validator or equivalent validation library
+- Pino or Winston for logging
+
+Development:
+- npm
+- ESLint
+- Prettier
+- .env configuration
+
+Do not introduce unnecessary technologies.
+
+Do not use:
+- TypeScript
+- Prisma
+- GraphQL
+- Kubernetes
+- Kafka
+- microservices
+- complex event sourcing
+- unnecessary AI/ML
+- unnecessary cloud infrastructure
+
+The architecture should be modular enough that these can be introduced later if the system grows.
+
+==================================================
+2. CORE PRODUCT IDEA
+==================================================
+
+WaterFleetOS solves this problem:
+
+During water scarcity, authorities receive multiple requests from different neighborhoods.
+
+The operations team needs to know:
+
+- Where is water needed?
+- How severe is the shortage?
+- How many people are affected?
+- Which requests are emergency cases?
+- Which tankers are available?
+- Where are the tankers currently located?
+- Which driver is available?
+- Which tanker has enough capacity?
+- Which vehicle should be assigned?
+- What route should it take?
+- Has the tanker reached the destination?
+- Has water been delivered?
+- How long did the response take?
+- Which areas repeatedly experience shortages?
+
+The application should provide a unified operational system for this.
+
+==================================================
+3. THREE PRIMARY USER TYPES
+==================================================
+
+Implement three main roles:
+
+1. CITIZEN
+2. ADMIN / OPERATOR
+3. DRIVER
+
+Additionally support:
+
+4. SUPER_ADMIN
+
+SUPER_ADMIN is optional for the MVP but architecture should support it.
+
+--------------------------------------------------
+CITIZEN
+--------------------------------------------------
+
+Citizens can:
+
+- Register/login
+- Report water shortage
+- Select/report location
+- Describe the issue
+- Select severity
+- Enter estimated affected people
+- Request water quantity
+- Track their request
+- View request status
+- Receive notifications
+- See assigned vehicle when available
+- Track vehicle approaching their location
+- Confirm water delivery
+- Report unresolved issue
+- View request history
+
+Citizen should have a very simple interface.
+
+Do not expose administrative complexity.
+
+--------------------------------------------------
+ADMIN / OPERATOR
+--------------------------------------------------
+
+Admin is the command center.
+
+Admin can:
+
+- View all shortage requests
+- View requests on a map
+- Filter by priority
+- Filter by status
+- Filter by geographical area
+- View available vehicles
+- View active vehicles
+- View drivers
+- Assign tasks
+- Reassign tasks
+- Cancel tasks
+- Change priority
+- Monitor live fleet
+- View delivery progress
+- View incidents
+- View analytics
+- View historical requests
+- View audit logs
+
+Admin dashboard should be the most operationally powerful interface.
+
+--------------------------------------------------
+DRIVER
+--------------------------------------------------
+
+Driver can:
+
+- Login
+- View assigned task
+- Accept/reject assignment
+- View pickup/destination
+- Start journey
+- Share live location
+- Mark arrived
+- Start delivery
+- Complete delivery
+- Report issue
+- Mark vehicle unavailable
+- View task history
+
+Driver UI must be optimized for mobile.
+
+==================================================
+4. MAIN DOMAIN ENTITIES
+==================================================
+
+Create the following MongoDB models.
+
+--------------------------------------------------
+USER
+--------------------------------------------------
+
+Fields:
+
+_id
+name
+email
+phone
+password
+role
+isActive
+createdAt
+updatedAt
+
+role:
+
+CITIZEN
+ADMIN
+DRIVER
+SUPER_ADMIN
+
+For DRIVER users, reference driver profile.
+
+--------------------------------------------------
+DRIVER
+--------------------------------------------------
+
+Fields:
+
+_id
+userId
+licenseNumber
+licenseExpiry
+status
+currentVehicleId
+currentLocation
+lastLocationUpdate
+rating
+totalTasks
+completedTasks
+createdAt
+updatedAt
+
+status:
+
+AVAILABLE
+BUSY
+OFFLINE
+ON_BREAK
+SUSPENDED
+
+currentLocation:
+
+{
+    lat,
+    lng
+}
+
+--------------------------------------------------
+VEHICLE
+--------------------------------------------------
+
+Fields:
+
+_id
+vehicleNumber
+type
+capacityLiters
+currentWaterLevel
+status
+driverId
+currentLocation
+lastLocationUpdate
+fuelLevel
+lastMaintenanceDate
+nextMaintenanceDate
+isActive
+createdAt
+updatedAt
+
+Vehicle types:
+
+WATER_TANKER
+TRUCK
+UTILITY_VEHICLE
+
+Vehicle status:
+
+AVAILABLE
+ASSIGNED
+EN_ROUTE
+DELIVERING
+MAINTENANCE
+OFFLINE
+
+Example:
+
+capacityLiters: 10000
+currentWaterLevel: 7500
+
+--------------------------------------------------
+WATER_REQUEST
+--------------------------------------------------
+
+This is the most important entity.
+
+Fields:
+
+_id
+citizenId
+location
+address
+description
+severity
+priorityScore
+requestedLiters
+estimatedAffectedPeople
+status
+assignedTaskId
+createdAt
+updatedAt
+resolvedAt
+
+location:
+
+{
+    lat,
+    lng
+}
+
+severity:
+
+LOW
+MEDIUM
+HIGH
+CRITICAL
+
+status:
+
+PENDING
+VALIDATING
+APPROVED
+ASSIGNED
+EN_ROUTE
+ARRIVED
+DELIVERING
+COMPLETED
+REJECTED
+CANCELLED
+
+Priority should be calculated using:
+
+- severity
+- affected population
+- requested quantity
+- waiting time
+- emergency flag
+- historical scarcity if available
+
+Do not build an unnecessarily complex AI model.
+
+Use a deterministic scoring algorithm.
+
+Example:
+
+priorityScore =
+    severityWeight
+    + affectedPeopleWeight
+    + waitingTimeWeight
+    + emergencyWeight
+
+Document the scoring logic.
+
+--------------------------------------------------
+TASK
+--------------------------------------------------
+
+Represents an operational assignment.
+
+Fields:
+
+_id
+requestId
+vehicleId
+driverId
+assignedBy
+status
+assignedAt
+acceptedAt
+startedAt
+arrivedAt
+deliveryStartedAt
+completedAt
+estimatedArrival
+actualArrival
+route
+distanceKm
+deliveryLiters
+notes
+failureReason
+createdAt
+updatedAt
+
+Status:
+
+CREATED
+ASSIGNED
+ACCEPTED
+EN_ROUTE
+ARRIVED
+DELIVERING
+COMPLETED
+FAILED
+CANCELLED
+
+--------------------------------------------------
+VEHICLE_LOCATION
+--------------------------------------------------
+
+Do NOT necessarily create a permanent database document for every GPS update.
+
+For MVP:
+
+Store latest location on Vehicle and Driver.
+
+Optionally maintain location history separately:
+
+vehicleId
+lat
+lng
+timestamp
+taskId
+
+Use location history only at controlled intervals.
+
+Avoid writing GPS coordinates every second into MongoDB.
+
+==================================================
+5. REQUEST LIFECYCLE
+==================================================
+
+Implement the following workflow.
+
+CITIZEN:
+
+REPORT SHORTAGE
+
+↓
+
+PENDING
+
+↓
+
+ADMIN VALIDATES
+
+↓
+
+APPROVED
+
+↓
+
+SYSTEM/ADMIN ASSIGNS VEHICLE
+
+↓
+
+ASSIGNED
+
+↓
+
+DRIVER ACCEPTS
+
+↓
+
+ACCEPTED
+
+↓
+
+DRIVER STARTS JOURNEY
+
+↓
+
+EN_ROUTE
+
+↓
+
+DRIVER ARRIVES
+
+↓
+
+ARRIVED
+
+↓
+
+DELIVERY STARTS
+
+↓
+
+DELIVERING
+
+↓
+
+DELIVERY COMPLETED
+
+↓
+
+COMPLETED
+
+↓
+
+CITIZEN CONFIRMS DELIVERY
+
+↓
+
+RESOLVED
+
+Every state transition must be validated.
+
+Do not allow arbitrary status updates from the frontend.
+
+==================================================
+6. WATER SCARCITY REPORTING
+==================================================
+
+Citizen reporting form should contain:
+
+- Location
+- Address
+- Severity
+- Requested water quantity
+- Estimated affected people
+- Description
+- Optional image
+- Emergency toggle
+
+Location should support:
+
+- Browser geolocation
+- Manual location selection
+
+For MVP, map integration can use:
+
+Leaflet + OpenStreetMap
+
+Avoid paid map APIs.
+
+==================================================
+7. ADMIN COMMAND CENTER
+==================================================
+
+Create a high-quality command center.
+
+Dashboard should contain:
+
+TOP METRICS:
+
+- Active Requests
+- Critical Requests
+- Available Tankers
+- Active Deliveries
+- Vehicles En Route
+- Completed Deliveries
+- Average Response Time
+
+MAIN AREA:
+
+Large interactive map.
+
+Show:
+
+- Water shortage requests
+- Tankers
+- Active assignments
+- Critical incidents
+
+Use different markers for:
+
+REQUEST
+CRITICAL REQUEST
+AVAILABLE VEHICLE
+ACTIVE VEHICLE
+COMPLETED REQUEST
+
+Clicking a marker should show a compact information card.
+
+--------------------------------------------------
+LIVE FLEET PANEL
+--------------------------------------------------
+
+Show:
+
+Vehicle number
+Driver
+Current status
+Water remaining
+Current location
+Assigned task
+ETA
+
+Example:
+
+TANKER UP-78-AB-1234
+Driver: Ravi Kumar
+Status: EN ROUTE
+Water: 6,500L
+Destination: Shastri Nagar
+ETA: 8 min
+
+--------------------------------------------------
+REQUEST QUEUE
+--------------------------------------------------
+
+Show prioritized requests.
+
+Example:
+
+CRITICAL
+Kanpur Nagar
+2,500 people affected
+12,000L requested
+Waiting: 47 min
+
+Buttons:
+
+Assign
+View
+Escalate
+Reject
+
+==================================================
+8. TASK ASSIGNMENT ENGINE
+==================================================
+
+Implement an assignment recommendation algorithm.
+
+When an admin opens a request:
+
+Find candidate vehicles that:
+
+1. Are AVAILABLE
+2. Are ACTIVE
+3. Have enough water
+4. Have sufficient capacity
+5. Have an available driver
+6. Are geographically close
+
+Calculate a simple score.
+
+Example:
+
+score =
+    distanceScore
+    + capacityScore
+    + availabilityScore
+    + waterLevelScore
+
+Prefer:
+
+- closest vehicle
+- sufficient water
+- available driver
+- appropriate capacity
+
+Return the top 3 recommended vehicles.
+
+Example UI:
+
+Recommended Vehicles
+
+1. UP-78-AB-1234
+   2.4 km away
+   8,000L available
+   Driver: Ravi
+   ETA: 7 min
+   RECOMMENDED
+
+2. UP-78-CD-5512
+   4.1 km away
+   10,000L available
+   Driver: Amit
+   ETA: 11 min
+
+3. UP-78-EF-9123
+   5.7 km away
+   7,000L available
+   Driver: Rahul
+   ETA: 15 min
+
+Admin can override recommendation.
+
+==================================================
+9. ROUTE / ETA
+==================================================
+
+For MVP:
+
+Use a basic distance calculation such as Haversine formula.
+
+Calculate:
+
+distance between vehicle and destination
+
+Then:
+
+ETA = distance / estimated average speed
+
+Do NOT implement complex routing algorithms.
+
+Structure the service so a real routing provider can be integrated later.
+
+Create:
+
+route.service.js
+
+with functions such as:
+
+calculateDistance()
+estimateETA()
+generateRoute()
+
+Later this can be replaced with:
+
+OSRM
+Google Maps
+Mapbox
+
+without changing the assignment architecture.
+
+==================================================
+10. REAL-TIME TRACKING
+==================================================
+
+Use Socket.IO.
+
+Real-time events should include:
+
+vehicle:location
+vehicle:status
+task:assigned
+task:accepted
+task:started
+task:arrived
+task:delivery_started
+task:completed
+request:created
+request:updated
+notification:new
+
+Example:
+
+Driver sends:
+
+vehicle:location
+
+payload:
+
+{
+    vehicleId,
+    taskId,
+    lat,
+    lng,
+    timestamp
+}
+
+Backend validates the driver and vehicle.
+
+Then broadcast:
+
+vehicle:location
+
+to relevant admin clients.
+
+Do not broadcast every event globally.
+
+Use Socket.IO rooms.
+
+Example:
+
+admin-room
+task:{taskId}
+vehicle:{vehicleId}
+user:{userId}
+
+==================================================
+11. LOCATION UPDATE STRATEGY
+==================================================
+
+Do NOT send GPS updates every 100ms.
+
+Use approximately:
+
+5–10 second intervals while active
+
+or:
+
+20–50 meters movement threshold
+
+whichever is appropriate.
+
+Backend should:
+
+- validate coordinates
+- update latest vehicle location
+- emit realtime event
+- optionally store sampled history
+
+Add rate limiting to location updates.
+
+Prevent drivers from spoofing another vehicle.
+
+Verify:
+
+authenticated user
+→ driver
+→ assigned vehicle
+
+==================================================
+12. DRIVER MOBILE DASHBOARD
+==================================================
+
+Build mobile-first UI.
+
+Main screen:
+
+--------------------------------
+ACTIVE DELIVERY
+--------------------------------
+
+Task #WF-1024
+
+Destination:
+Shastri Nagar, Kanpur
+
+Water:
+8,000L
+
+Distance:
+3.2 km
+
+ETA:
+9 minutes
+
+[ START JOURNEY ]
+
+--------------------------------
+
+After start:
+
+[ NAVIGATE ]
+
+[ ARRIVED ]
+
+[ START DELIVERY ]
+
+[ COMPLETE DELIVERY ]
+
+[ REPORT ISSUE ]
+
+Show live task status.
+
+Use large touch-friendly controls.
+
+==================================================
+13. DELIVERY COMPLETION
+==================================================
+
+Driver completes delivery by submitting:
+
+- Delivered liters
+- Delivery notes
+- Optional proof image
+- Recipient confirmation
+
+Example:
+
+Requested: 8,000L
+Delivered: 7,500L
+
+The system should record actual delivery.
+
+Update vehicle:
+
+currentWaterLevel -= deliveredLiters
+
+Update task:
+
+deliveryLiters = deliveredLiters
+
+Update request:
+
+status = COMPLETED
+
+Create audit event.
+
+==================================================
+14. CITIZEN TRACKING
+==================================================
+
+Citizen should see:
+
+Request status
+
+Example:
+
+Water Request #WF-1024
+
+✓ Request submitted
+✓ Request approved
+✓ Tanker assigned
+✓ Driver accepted
+● Vehicle en route
+○ Arrived
+○ Delivery completed
+
+If vehicle is en route:
+
+Show:
+
+Driver
+Vehicle number
+Estimated arrival
+Live vehicle location
+
+Do not expose unnecessary driver personal information.
+
+==================================================
+15. NOTIFICATION SYSTEM
+==================================================
+
+Implement in-app notifications.
+
+Examples:
+
+"Your water request has been approved."
+
+"A tanker has been assigned."
+
+"Your tanker is 2 km away."
+
+"The driver has arrived."
+
+"Water delivery completed."
+
+Admin notifications:
+
+"Critical water request received."
+
+"Vehicle has reported a delivery issue."
+
+"Driver rejected assignment."
+
+For MVP, notifications can be stored in MongoDB and delivered through Socket.IO.
+
+==================================================
+16. EMERGENCY PRIORITIZATION
+==================================================
+
+Critical requests must be visually obvious.
+
+Priority levels:
+
+LOW
+MEDIUM
+HIGH
+CRITICAL
+
+Critical requests should:
+
+- appear at top
+- have a clear visual indicator
+- be highlighted on command center
+- trigger admin realtime notification
+- receive assignment recommendations first
+
+Do not use excessive animations.
+
+The UI should communicate urgency professionally.
+
+==================================================
+17. ANALYTICS
+==================================================
+
+Create analytics dashboard.
+
+Metrics:
+
+Total Requests
+Completed Requests
+Pending Requests
+Critical Requests
+Average Response Time
+Average Delivery Time
+Water Delivered
+Active Vehicles
+Vehicle Utilization
+Driver Utilization
+
+Charts:
+
+Requests over time
+Water delivered per day
+Requests by severity
+Requests by area
+Average response time
+Fleet utilization
+
+Use aggregation pipelines in MongoDB.
+
+Examples:
+
+$count
+$match
+$group
+$avg
+$sum
+$sort
+
+==================================================
+18. WATER SCARCITY HEATMAP
+==================================================
+
+Create an optional scarcity visualization.
+
+Aggregate requests geographically.
+
+Show areas with:
+
+- high request density
+- repeated shortage reports
+- high population affected
+
+This should help administrators identify recurring scarcity zones.
+
+For MVP, use request coordinates and clustering/heatmap visualization.
+
+Do NOT implement machine learning.
+
+==================================================
+19. AUDIT LOG
+==================================================
+
+Every important operation should generate an audit record.
+
+Examples:
+
+Admin approved request
+Admin assigned tanker
+Driver accepted task
+Driver started journey
+Driver arrived
+Driver completed delivery
+Admin reassigned task
+Request cancelled
+
+Audit model:
+
+actorId
+actorRole
+action
+entityType
+entityId
+metadata
+timestamp
+
+Admin should be able to inspect audit history.
+
+==================================================
+20. AUTHENTICATION
+==================================================
+
+Implement JWT authentication.
+
+Access token should contain:
+
+userId
+role
+
+Protect backend routes using middleware.
+
+Middleware:
+
+authenticate
+authorize
+
+Example:
+
+router.post(
+    "/requests",
+    authenticate,
+    authorize("CITIZEN"),
+    createRequest
+)
+
+Admin endpoints:
+
+authorize("ADMIN", "SUPER_ADMIN")
+
+Driver endpoints:
+
+authorize("DRIVER")
+
+Never rely on frontend role checks for security.
+
+Frontend checks are only for UI.
+
+==================================================
+21. SECURITY
+==================================================
+
+Implement:
+
+- password hashing with bcrypt
+- JWT authentication
+- authorization middleware
+- request validation
+- rate limiting
+- CORS configuration
+- Helmet
+- safe error responses
+- environment variables
+- input sanitization where appropriate
+- MongoDB query protection
+- authentication rate limiting
+
+Never return:
+
+password
+passwordHash
+JWT secrets
+internal stack traces
+
+to clients.
+
+==================================================
+22. RATE LIMITING
+==================================================
+
+Add API rate limiting.
+
+At minimum:
+
+General API:
+100 requests / 15 minutes / IP
+
+Authentication:
+10 requests / 15 minutes / IP
+
+Water request creation:
+reasonable per-user limit
+
+Location updates:
+separate stricter limit
+
+Keep rate limiting implementation simple.
+
+Design it so Redis can replace in-memory storage later.
+
+==================================================
+23. BACKEND ARCHITECTURE
+==================================================
+
+Use modular architecture.
+
+Example:
+
+server/
+│
+├── src/
+│   ├── app.js
+│   ├── server.js
+│   │
+│   ├── config/
+│   │   ├── db.js
+│   │   └── env.js
+│   │
+│   ├── middleware/
+│   │   ├── auth.middleware.js
+│   │   ├── role.middleware.js
+│   │   ├── error.middleware.js
+│   │   └── rateLimit.middleware.js
+│   │
+│   ├── lib/
+│   │   ├── logger.js
+│   │   └── socket.js
+│   │
+│   ├── utils/
+│   │   ├── AppError.js
+│   │   ├── asyncHandler.js
+│   │   └── response.js
+│   │
+│   ├── modules/
+│   │
+│   │   ├── auth/
+│   │   │   ├── auth.controller.js
+│   │   │   ├── auth.service.js
+│   │   │   ├── auth.routes.js
+│   │   │   └── auth.validation.js
+│   │   │
+│   │   ├── users/
+│   │   │
+│   │   ├── vehicles/
+│   │   │   ├── vehicle.model.js
+│   │   │   ├── vehicle.controller.js
+│   │   │   ├── vehicle.service.js
+│   │   │   ├── vehicle.routes.js
+│   │   │   └── vehicle.validation.js
+│   │   │
+│   │   ├── drivers/
+│   │   │
+│   │   ├── requests/
+│   │   │   ├── request.model.js
+│   │   │   ├── request.controller.js
+│   │   │   ├── request.service.js
+│   │   │   ├── request.routes.js
+│   │   │   └── request.validation.js
+│   │   │
+│   │   ├── tasks/
+│   │   │
+│   │   ├── tracking/
+│   │   │
+│   │   ├── notifications/
+│   │   │
+│   │   ├── analytics/
+│   │   │
+│   │   └── audit/
+│   │
+│   └── routes/
+│       └── index.js
+│
+└── package.json
+
+Use:
+
+Controller
+→ Service
+→ Model
+
+Do not put business logic inside controllers.
+
+==================================================
+24. FRONTEND ARCHITECTURE
+==================================================
+
+Use:
+
+client/
+│
+├── src/
+│   ├── main.jsx
+│   ├── App.jsx
+│   │
+│   ├── components/
+│   │   ├── ui/
+│   │   ├── map/
+│   │   ├── charts/
+│   │   └── common/
+│   │
+│   ├── pages/
+│   │   ├── auth/
+│   │   ├── citizen/
+│   │   ├── admin/
+│   │   └── driver/
+│   │
+│   ├── layouts/
+│   │
+│   ├── store/
+│   │
+│   ├── services/
+│   │   ├── api.js
+│   │   └── socket.js
+│   │
+│   ├── hooks/
+│   │
+│   ├── utils/
+│   │
+│   └── routes/
+│
+└── package.json
+
+==================================================
+25. API DESIGN
+==================================================
+
+Use REST APIs.
+
+Authentication:
+
+POST /api/auth/register
+POST /api/auth/login
+GET  /api/auth/me
+
+Water Requests:
+
+POST   /api/requests
+GET    /api/requests
+GET    /api/requests/:id
+PATCH  /api/requests/:id
+POST   /api/requests/:id/approve
+POST   /api/requests/:id/reject
+POST   /api/requests/:id/cancel
+
+Tasks:
+
+POST   /api/tasks
+GET    /api/tasks
+GET    /api/tasks/:id
+POST   /api/tasks/:id/accept
+POST   /api/tasks/:id/start
+POST   /api/tasks/:id/arrive
+POST   /api/tasks/:id/start-delivery
+POST   /api/tasks/:id/complete
+POST   /api/tasks/:id/fail
+
+Vehicles:
+
+GET    /api/vehicles
+POST   /api/vehicles
+GET    /api/vehicles/:id
+PATCH  /api/vehicles/:id
+PATCH  /api/vehicles/:id/status
+GET    /api/vehicles/:id/location
+
+Drivers:
+
+GET    /api/drivers
+GET    /api/drivers/:id
+PATCH  /api/drivers/:id/status
+
+Analytics:
+
+GET /api/analytics/overview
+GET /api/analytics/requests
+GET /api/analytics/fleet
+GET /api/analytics/water
+GET /api/analytics/scarcity
+
+Audit:
+
+GET /api/audit
+
+==================================================
+26. SOCKET.IO ARCHITECTURE
+==================================================
+
+On connection:
+
+Authenticate socket using JWT.
+
+Place users into rooms.
+
+Example:
+
+user:{userId}
+
+role:admin
+
+admin-room
+
+driver:{driverId}
+
+task:{taskId}
+
+vehicle:{vehicleId}
+
+Events:
+
+join:task
+join:vehicle
+
+vehicle:location
+
+task:status
+
+request:created
+
+request:updated
+
+notification:new
+
+Use server-side authorization before allowing sensitive room access.
+
+==================================================
+27. DATABASE INDEXES
+==================================================
+
+Create appropriate MongoDB indexes.
+
+Examples:
+
+User:
+email unique index
+
+Vehicle:
+vehicleNumber unique index
+status index
+driverId index
+
+Request:
+status index
+severity index
+createdAt index
+citizenId index
+
+Task:
+status index
+driverId index
+vehicleId index
+requestId index
+
+For geospatial queries:
+
+location:
+2dsphere index
+
+Use:
+
+$near
+
+where appropriate.
+
+==================================================
+28. ERROR HANDLING
+==================================================
+
+Create centralized error handling.
+
+Standard response format:
+
+{
+    success: false,
+    message: "...",
+    errorCode: "..."
+}
+
+Success:
+
+{
+    success: true,
+    data: ...
+}
+
+Do not expose internal errors.
+
+Use HTTP status codes correctly.
+
+400 validation
+401 unauthenticated
+403 unauthorized
+404 not found
+409 conflict
+429 rate limited
+500 internal error
+
+==================================================
+29. CONCURRENCY SAFETY
+==================================================
+
+Task assignment must prevent two admins from assigning the same vehicle simultaneously.
+
+Use atomic MongoDB updates where possible.
+
+Example concept:
+
+Find vehicle where:
+
+status = AVAILABLE
+
+Then atomically update:
+
+status = ASSIGNED
+driverId = ...
+
+If update fails:
+
+vehicle was already assigned.
+
+Return conflict.
+
+Do not rely only on:
+
+find()
+then save()
+
+for critical assignment operations.
+
+Use MongoDB transactions when multiple related documents must change atomically.
+
+For example:
+
+Vehicle assignment:
+
+Vehicle
++
+Driver
++
+Task
++
+Request
+
+should be updated consistently.
+
+==================================================
+30. FRONTEND UX
+==================================================
+
+The application should look like a serious emergency-response product.
+
+Design direction:
+
+Dark/light operational dashboard.
+
+Clean typography.
+
+Strong information hierarchy.
+
+Maps should dominate the admin dashboard.
+
+Use:
+
+cards
+tables
+status badges
+side panels
+drawers
+modals
+charts
+maps
+
+Avoid:
+
+excessive gradients
+glassmorphism everywhere
+unnecessary animations
+AI-looking decorative UI
+huge empty hero sections
+marketing landing-page style dashboard
+
+The product is an operational tool.
+
+==================================================
+31. ADMIN NAVIGATION
+==================================================
+
+Sidebar:
+
+Overview
+
+Live Operations
+
+Water Requests
+
+Fleet
+
+Drivers
+
+Tasks
+
+Scarcity Map
+
+Analytics
+
+Audit Logs
+
+Settings
+
+Only show relevant sections.
+
+==================================================
+32. CITIZEN NAVIGATION
+==================================================
+
+Home
+
+Report Shortage
+
+My Requests
+
+Live Delivery
+
+Notifications
+
+Profile
+
+==================================================
+33. DRIVER NAVIGATION
+==================================================
+
+Dashboard
+
+Active Task
+
+Vehicle
+
+Task History
+
+Notifications
+
+Profile
+
+==================================================
+34. DEMO DATA
+==================================================
+
+Create seed data.
+
+Use realistic Indian city data.
+
+Prefer Kanpur-style demonstration data.
+
+Example areas:
+
+Shastri Nagar
+Kakadeo
+Swaroop Nagar
+Govind Nagar
+Kidwai Nagar
+Kalyanpur
+Barra
+Panki
+Naubasta
+
+Create:
+
+10 citizens
+5 drivers
+5 vehicles
+10 water requests
+several tasks
+
+Use realistic coordinates.
+
+Do not use real people's personal data.
+
+==================================================
+35. DEMO SCENARIO
+==================================================
+
+Create a fully working demonstration.
+
+Scenario:
+
+1. Citizen reports severe water shortage.
+
+2. Request enters PENDING.
+
+3. Admin receives realtime notification.
+
+4. Admin opens request.
+
+5. System calculates priority.
+
+6. Admin sees recommended tankers.
+
+7. Admin assigns tanker.
+
+8. Driver receives realtime task notification.
+
+9. Driver accepts.
+
+10. Driver starts journey.
+
+11. Driver location changes.
+
+12. Admin map updates vehicle position realtime.
+
+13. Driver reaches destination.
+
+14. Driver starts delivery.
+
+15. Driver completes delivery.
+
+16. Water quantity is deducted.
+
+17. Citizen receives completion notification.
+
+18. Request becomes COMPLETED.
+
+19. Analytics update.
+
+20. Audit trail is generated.
+
+This entire flow must work end-to-end.
+
+==================================================
+36. TESTING
+==================================================
+
+Implement at least basic tests for critical backend logic.
+
+Test:
+
+- authentication
+- authorization
+- request creation
+- priority calculation
+- vehicle recommendation
+- task assignment
+- duplicate vehicle assignment prevention
+- task state transitions
+- delivery completion
+- water deduction
+
+Do not spend excessive time creating hundreds of tests.
+
+Focus on critical business logic.
+
+==================================================
+37. SCALABILITY PREPARATION
+==================================================
+
+The initial implementation should be simple.
+
+However, design clean boundaries for future scaling.
+
+Future possibilities:
+
+MongoDB replica set
+Redis
+Redis Pub/Sub
+BullMQ
+message queues
+multiple Node.js instances
+Socket.IO Redis adapter
+external routing provider
+object storage
+event streaming
+PostgreSQL/PostGIS
+
+Do NOT implement these now unless absolutely necessary.
+
+The architecture should allow them later.
+
+==================================================
+38. PERFORMANCE
+==================================================
+
+Avoid:
+
+N+1 queries
+unbounded queries
+huge MongoDB documents
+storing GPS every second
+broadcasting socket events globally
+unnecessary frontend re-renders
+
+Use:
+
+pagination
+indexes
+projection
+aggregation
+debouncing/throttling
+Socket.IO rooms
+server-side filtering
+
+Requests should be paginated.
+
+Example:
+
+?page=1&limit=20
+
+==================================================
+39. IMPORTANT BUSINESS RULES
+==================================================
+
+Rule 1:
+
+A vehicle cannot have two active tasks.
+
+Rule 2:
+
+A driver cannot operate two active vehicles.
+
+Rule 3:
+
+A vehicle cannot be assigned if:
+
+MAINTENANCE
+OFFLINE
+
+Rule 4:
+
+Vehicle must have enough water for assignment.
+
+Rule 5:
+
+Only assigned driver can update task progress.
+
+Rule 6:
+
+Only authorized admins can assign/reassign tasks.
+
+Rule 7:
+
+Completed tasks cannot be modified except through an explicit correction workflow.
+
+Rule 8:
+
+Critical requests receive priority.
+
+Rule 9:
+
+Every important state transition creates an audit log.
+
+Rule 10:
+
+Frontend cannot bypass backend authorization.
+
+==================================================
+40. FILE UPLOADS
+==================================================
+
+For MVP:
+
+Allow optional image attachment for:
+
+- shortage report
+- delivery proof
+- incident report
+
+Do not implement complicated media processing.
+
+Abstract upload functionality behind:
+
+upload.service.js
+
+so cloud storage can be introduced later.
+
+==================================================
+41. IMPLEMENTATION ORDER
+==================================================
+
+Build in this order.
+
+PHASE 1:
+
+Project setup
+
+Backend
+Frontend
+MongoDB
+Environment configuration
+
+PHASE 2:
+
+Authentication
+
+User
+JWT
+RBAC
+
+PHASE 3:
+
+Vehicles
+Drivers
+
+PHASE 4:
+
+Water shortage requests
+
+PHASE 5:
+
+Task assignment
+
+PHASE 6:
+
+Driver workflow
+
+PHASE 7:
+
+Socket.IO realtime communication
+
+PHASE 8:
+
+Live map
+
+PHASE 9:
+
+Admin command center
+
+PHASE 10:
+
+Citizen tracking
+
+PHASE 11:
+
+Analytics
+
+PHASE 12:
+
+Audit logs
+
+PHASE 13:
+
+Security hardening
+
+PHASE 14:
+
+Testing
+
+PHASE 15:
+
+UI polish
+
+==================================================
+42. DEVELOPMENT RULES
+==================================================
+
+Do not randomly modify existing architecture.
+
+Before implementing a feature:
+
+1. Inspect the existing code.
+2. Understand the architecture.
+3. Reuse existing utilities.
+4. Add new modules only when required.
+5. Avoid duplicated logic.
+6. Keep business logic in services.
+7. Keep controllers thin.
+8. Keep frontend components reusable.
+9. Keep API contracts consistent.
+
+Do not rewrite working functionality unnecessarily.
+
+==================================================
+43. CODE QUALITY
+==================================================
+
+Use:
+
+clear naming
+small functions
+single responsibility
+consistent error handling
+consistent API responses
+centralized configuration
+environment variables
+comments only where useful
+
+Avoid:
+
+massive controllers
+massive React components
+duplicate business logic
+hardcoded secrets
+hardcoded API URLs
+magic numbers
+unnecessary abstractions
+
+==================================================
+44. FINAL ACCEPTANCE CRITERIA
+==================================================
+
+The project is considered complete only when:
+
+1. Citizen can register/login.
+
+2. Citizen can report a water shortage.
+
+3. Admin can see the request.
+
+4. Admin can approve it.
+
+5. System calculates priority.
+
+6. System recommends vehicles.
+
+7. Admin can assign vehicle.
+
+8. Driver receives task.
+
+9. Driver can accept task.
+
+10. Driver can start journey.
+
+11. Driver location can update.
+
+12. Admin sees vehicle moving realtime.
+
+13. Driver can mark arrival.
+
+14. Driver can start delivery.
+
+15. Driver can complete delivery.
+
+16. Water inventory decreases.
+
+17. Citizen receives status updates.
+
+18. Request becomes completed.
+
+19. Analytics reflect the completed delivery.
+
+20. Audit log records the workflow.
+
+21. Unauthorized users cannot access protected operations.
+
+22. Duplicate vehicle assignment is prevented.
+
+23. UI works on desktop and mobile.
+
+24. Seed data allows the entire system to be demonstrated without manually creating everything.
+
+==================================================
+45. IMPORTANT PRODUCT PRINCIPLE
+==================================================
+
+This is NOT merely:
+
+"Vehicle Tracking Software"
+
+It is:
+
+"WATER SCARCITY RESPONSE INFRASTRUCTURE"
+
+The central relationship is:
+
+WATER SHORTAGE
+        ↓
+REQUEST
+        ↓
+PRIORITIZATION
+        ↓
+RESOURCE ALLOCATION
+        ↓
+VEHICLE ASSIGNMENT
+        ↓
+LIVE TRACKING
+        ↓
+WATER DELIVERY
+        ↓
+VERIFICATION
+        ↓
+ANALYTICS
+
+The vehicle is a resource.
+
+The water request is the operational problem.
+
+The task is the bridge between the two.
+
+Design the entire system around this concept.
+
+==================================================
+46. DEMONSTRATION / HACKATHON IMPACT
+==================================================
+
+The final product should communicate these outcomes:
+
+- Faster emergency response
+- Better tanker utilization
+- Reduced manual coordination
+- Real-time operational visibility
+- Transparent delivery tracking
+- Priority-based resource allocation
+- Reduced duplicate dispatch
+- Better water distribution planning
+- Historical scarcity intelligence
+
+The admin command center should make this immediately visible.
+
+==================================================
+47. FINAL DELIVERABLE
+==================================================
+
+Produce a fully runnable application.
+
+Include:
+
+- README.md
+- setup instructions
+- environment variable example
+- database seed script
+- API documentation
+- architecture explanation
+- demo credentials
+- project structure
+- important design decisions
+- instructions for running frontend
+- instructions for running backend
+
+The README should explain:
+
+Architecture
+Database
+Authentication
+RBAC
+Task lifecycle
+Realtime architecture
+Assignment algorithm
+Location tracking
+Scalability considerations
+
+Make sure the application can be started with simple npm commands.
+
+Do not leave placeholder screens for core functionality.
+
+Core functionality must actually work.
+
+Prioritize functional end-to-end workflow over decorative features.
+
+==================================================
+FINAL INSTRUCTION
+==================================================
+
+Build the application incrementally.
+
+After each major phase:
+
+1. Verify existing functionality.
+2. Run the application.
+3. Fix errors.
+4. Do not break previous functionality.
+5. Continue to the next phase.
+
+If an implementation choice is ambiguous, prefer:
+
+SIMPLE
+RELIABLE
+MODULAR
+DEMONSTRABLE
+
+over premature enterprise complexity.
+
+The goal is to create a technically strong, visually polished, realistic water scarcity fleet response platform that can be demonstrated end-to-end.
+==================================================
+48. BATTERY-EFFICIENT GPS TRACKING
+==================================================
+
+IMPORTANT:
+
+The driver mobile application must NOT continuously keep GPS/location
+tracking active.
+
+The system is designed for water tanker drivers who may spend many hours
+operating vehicles.
+
+Continuous GPS tracking would unnecessarily consume battery and mobile
+data.
+
+Implement a battery-conscious, duty-cycle based location tracking system.
+
+--------------------------------------------------
+TRACKING STATES
+--------------------------------------------------
+
+The driver app has different tracking modes based on task state.
+
+1. OFFLINE / NO ACTIVE TASK
+
+GPS:
+OFF
+
+Do not actively request location.
+
+The backend retains only the driver's last known location.
+
+--------------------------------------------------
+
+2. TASK ASSIGNED BUT NOT STARTED
+
+GPS:
+LOW FREQUENCY
+
+Suggested interval:
+
+60–120 seconds
+
+Purpose:
+
+- operational visibility
+- approximate driver location
+- assignment monitoring
+
+Do not continuously track.
+
+--------------------------------------------------
+
+3. ACTIVE JOURNEY / EN_ROUTE
+
+GPS:
+ACTIVE BUT INTERMITTENT
+
+Suggested target:
+
+10–15 seconds
+
+OR
+
+when the vehicle moves approximately 50–100 meters.
+
+Whichever condition occurs first can trigger a location update.
+
+The app should not keep the GPS hardware continuously active
+between required updates.
+
+Example:
+
+T0:
+Acquire location
+
+T0 + 10–15 sec:
+Acquire location
+
+Send update
+
+Sleep
+
+T0 + 20–30 sec:
+Acquire again
+
+Evaluate movement
+
+Send only if necessary
+
+This reduces unnecessary GPS and network usage.
+
+--------------------------------------------------
+
+4. APPROACHING DESTINATION
+
+When the vehicle is close to the destination, increase tracking frequency.
+
+Suggested:
+
+5–10 seconds
+
+OR
+
+movement threshold of approximately 25–50 meters.
+
+Reason:
+
+At this stage accurate ETA and arrival detection are more important.
+
+--------------------------------------------------
+
+5. ARRIVED
+
+When the driver marks ARRIVED:
+
+Reduce tracking frequency significantly.
+
+Suggested:
+
+30–60 seconds
+
+or disable active tracking if the vehicle is stationary.
+
+--------------------------------------------------
+
+6. DELIVERING
+
+The vehicle is normally stationary.
+
+GPS:
+
+LOW FREQUENCY / EVENT BASED
+
+Do not continuously collect GPS.
+
+--------------------------------------------------
+
+7. TASK COMPLETED
+
+Immediately stop active GPS tracking.
+
+GPS:
+
+OFF
+
+The driver application returns to normal battery-saving mode.
+
+==================================================
+49. LOCATION COLLECTION ALGORITHM
+==================================================
+
+Do not implement:
+
+setInterval(() => {
+    navigator.geolocation.getCurrentPosition(...)
+}, 1000)
+
+This is inefficient and must NOT be used.
+
+Instead create a dedicated location tracking service.
+
+Example:
+
+locationTrackingService.js
+
+Responsibilities:
+
+startTracking()
+stopTracking()
+updateTrackingMode()
+requestLocation()
+shouldSendLocation()
+calculateMovement()
+getTrackingInterval()
+
+The service should determine:
+
+- current task status
+- current tracking mode
+- battery state if available
+- distance travelled
+- time since previous update
+- whether the driver is moving
+- whether the destination is nearby
+
+before requesting/transmitting another location.
+
+==================================================
+50. ADAPTIVE TRACKING
+==================================================
+
+Create a tracking configuration such as:
+
+TRACKING_CONFIG = {
+
+    IDLE: {
+        enabled: false
+    },
+
+    ASSIGNED: {
+        interval: 120000,
+        distanceThreshold: 100
+    },
+
+    EN_ROUTE: {
+        interval: 15000,
+        distanceThreshold: 75
+    },
+
+    NEAR_DESTINATION: {
+        interval: 5000,
+        distanceThreshold: 30
+    },
+
+    ARRIVED: {
+        interval: 60000,
+        distanceThreshold: 100
+    },
+
+    DELIVERING: {
+        interval: 60000,
+        distanceThreshold: 100
+    }
+
+}
+
+These values should be configurable.
+
+Do not hardcode tracking behavior throughout the application.
+
+==================================================
+51. BATTERY-AWARE BEHAVIOR
+==================================================
+
+Where browser/device APIs permit, detect approximate battery state.
+
+If battery level becomes critically low:
+
+Reduce tracking frequency.
+
+Example:
+
+Normal battery:
+
+EN_ROUTE:
+10–15 sec
+
+Low battery:
+
+EN_ROUTE:
+30–60 sec
+
+Critical battery:
+
+EN_ROUTE:
+60–120 sec
+
+However:
+
+Battery optimization must NEVER prevent the driver from manually
+updating task state.
+
+The driver must always be able to:
+
+START
+ARRIVE
+START DELIVERY
+COMPLETE
+REPORT ISSUE
+
+==================================================
+52. NETWORK-AWARE LOCATION TRANSMISSION
+==================================================
+
+Do not send unnecessary network requests.
+
+Before transmitting:
+
+1. Check whether the location changed enough.
+2. Check whether enough time has passed.
+3. Check task state.
+4. Check whether the location is valid.
+
+Example:
+
+if (
+    distanceFromLastSent >= distanceThreshold ||
+    timeSinceLastSent >= maxInterval
+) {
+    sendLocation();
+}
+
+Otherwise:
+
+do not transmit.
+
+==================================================
+53. LOCATION PAYLOAD
+==================================================
+
+Send:
+
+{
+    vehicleId,
+    driverId,
+    taskId,
+    lat,
+    lng,
+    accuracy,
+    speed,
+    heading,
+    timestamp
+}
+
+Do not send unnecessary device information.
+
+The backend should validate:
+
+- authenticated driver
+- driver owns/operates vehicle
+- vehicle is assigned to task
+- task is active
+- coordinates are valid
+
+==================================================
+54. SERVER-SIDE LOCATION HANDLING
+==================================================
+
+Create:
+
+tracking.service.js
+
+Responsibilities:
+
+validateLocation()
+updateVehicleLocation()
+updateDriverLocation()
+broadcastLocation()
+storeLocationHistory()
+
+The server should:
+
+1. Authenticate driver.
+2. Verify active task.
+3. Verify vehicle assignment.
+4. Validate coordinates.
+5. Update latest vehicle location.
+6. Broadcast realtime update through Socket.IO.
+7. Optionally persist sampled location history.
+
+Do not write every GPS update permanently to MongoDB.
+
+==================================================
+55. LOCATION HISTORY SAMPLING
+==================================================
+
+Latest location:
+
+Store on Vehicle:
+
+currentLocation
+
+lastLocationUpdate
+
+Historical locations:
+
+Store only sampled points.
+
+Example:
+
+vehicleId
+taskId
+lat
+lng
+timestamp
+
+Possible strategy:
+
+- realtime location → Socket.IO
+- latest location → Vehicle document
+- sampled history → MongoDB
+
+This avoids turning MongoDB into a high-frequency GPS event database.
+
+==================================================
+56. SOCKET.IO LOCATION FLOW
+==================================================
+
+Driver:
+
+GPS sensor
+     ↓
+Location Tracking Service
+     ↓
+movement/time validation
+     ↓
+REST API or Socket.IO
+     ↓
+Backend validation
+     ↓
+Vehicle latest location
+     ↓
+Socket.IO
+     ↓
+Admin Command Center
+     ↓
+Live map marker
+
+Citizen should receive location only when they are authorized
+to view the assigned vehicle.
+
+Do NOT broadcast all vehicle locations to every connected user.
+
+Use rooms:
+
+admin-room
+
+task:{taskId}
+
+vehicle:{vehicleId}
+
+user:{userId}
+
+==================================================
+57. OFFLINE NETWORK HANDLING
+==================================================
+
+The driver may lose mobile connectivity.
+
+The app must NOT fail the task because of temporary network loss.
+
+When offline:
+
+- continue task locally
+- retain the latest location temporarily
+- queue a small number of important location points
+- retry when connectivity returns
+
+Do NOT queue thousands of GPS points.
+
+Prioritize:
+
+latest location
+task status transitions
+arrival
+delivery completion
+incident reports
+
+When connection returns:
+
+sync queued critical events.
+
+==================================================
+58. GPS ACCURACY HANDLING
+==================================================
+
+Do not blindly trust every location reading.
+
+Check:
+
+accuracy
+
+If GPS accuracy is extremely poor:
+
+do not update the live marker blindly.
+
+Example:
+
+if accuracy > acceptableThreshold:
+
+mark location as low-confidence
+
+or ignore the point.
+
+Avoid jumping the vehicle across the map because of GPS noise.
+
+==================================================
+59. GEOFENCING / ARRIVAL DETECTION
+==================================================
+
+When the vehicle gets sufficiently close to the destination:
+
+calculate:
+
+distance(vehicleLocation, requestLocation)
+
+using Haversine distance.
+
+Example:
+
+if distance <= 100 meters:
+
+show:
+
+"Vehicle has reached the delivery area."
+
+However:
+
+Do NOT automatically mark the task ARRIVED.
+
+The driver should confirm arrival.
+
+The system can provide:
+
+ARRIVAL DETECTED
+
+and let the driver press:
+
+[ CONFIRM ARRIVAL ]
+
+This prevents GPS inaccuracies from incorrectly completing state transitions.
+
+==================================================
+60. BATTERY OPTIMIZATION PRINCIPLE
+==================================================
+
+The core principle is:
+
+"Track when operationally useful, sleep when operationally unnecessary."
+
+Do not optimize only for maximum location accuracy.
+
+Optimize for:
+
+Battery consumption
+Network usage
+GPS accuracy
+Realtime visibility
+Operational usefulness
+
+The system should provide enough location information for fleet operations
+without continuously polling GPS.
+
+==================================================
+61. FUTURE MOBILE IMPLEMENTATION
+==================================================
+
+The initial web/PWA implementation can use:
+
+navigator.geolocation
+
+where supported.
+
+However, architecture should isolate GPS logic behind:
+
+locationTrackingService
+
+because a future native mobile application may use:
+
+Android Fused Location Provider
+iOS Core Location
+
+The backend must not care how the location was obtained.
+
+Backend receives standardized:
+
+{
+    lat,
+    lng,
+    accuracy,
+    speed,
+    heading,
+    timestamp
+}
+
+==================================================
+62. IMPORTANT SECURITY RULE
+==================================================
+
+A driver must never be able to submit arbitrary vehicle coordinates.
+
+The backend must determine:
+
+authenticated user
+        ↓
+driver
+        ↓
+assigned vehicle
+        ↓
+active task
+
+Only then accept the location update.
+
+A driver cannot send:
+
+vehicleId = anotherVehicle
+
+and modify another vehicle's location.
+
+==================================================
+63. ADMIN UI
+==================================================
+
+For every active vehicle show:
+
+Vehicle
+Driver
+Status
+Last location
+Last update time
+GPS accuracy
+Speed
+ETA
+Tracking state
+
+Example:
+
+TANKER UP-78-AB-1234
+
+EN ROUTE
+
+Last update:
+8 seconds ago
+
+Speed:
+32 km/h
+
+Accuracy:
+8m
+
+ETA:
+6 min
+
+Tracking:
+ACTIVE
+
+Battery:
+72%
+
+Do not display battery information if the browser/device does not expose
+reliable battery information.
+
+==================================================
+64. TRACKING VISUALIZATION
+==================================================
+
+On the admin map:
+
+Show the current vehicle marker.
+
+Optionally show:
+
+- recent breadcrumb trail
+- destination marker
+- route
+- ETA
+- last update timestamp
+
+The breadcrumb trail should be sampled rather than containing every
+location event.
+
+If a vehicle has not reported a location for a configured period:
+
+Example:
+
+> 60 seconds
+
+show:
+
+"Location stale"
+
+Do not pretend the vehicle is realtime when the last update is old.
+
+==================================================
+65. FINAL GPS ACCEPTANCE CRITERIA
+==================================================
+
+The GPS system is complete only when:
+
+1. GPS is OFF when there is no active task.
+
+2. GPS activates only when operationally required.
+
+3. Location updates occur at controlled intervals.
+
+4. Movement thresholds prevent unnecessary updates.
+
+5. Tracking frequency changes according to task state.
+
+6. Tracking frequency increases near the destination.
+
+7. Tracking stops after task completion.
+
+8. Location updates are authenticated.
+
+9. Driver cannot update another vehicle.
+
+10. GPS accuracy is considered.
+
+11. Network failure does not destroy task state.
+
+12. Location updates are not stored permanently at every GPS tick.
+
+13. Latest location is available to the admin command center.
+
+14. Socket.IO broadcasts authorized realtime updates.
+
+15. Citizens can track only their assigned delivery.
+
+16. Stale locations are clearly identified.
+
+17. Battery consumption is minimized.
+
+The goal is NOT "maximum GPS accuracy".
+
+The goal is:
+
+RELIABLE REALTIME FLEET VISIBILITY
++
+MINIMUM BATTERY CONSUMPTION
++
+MINIMUM NETWORK USAGE
++
+SAFE LOCATION HANDLING
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-10-08T18:34:52+05:30.
+</ADDITIONAL_METADATA>
+<USER_SETTINGS_CHANGE>
+The user changed setting `Model Selection` from None to Claude Opus 4.6 (Thinking). No need to comment on this change if the user doesn't ask about it. If reporting what model you are, please use a human readable name instead of the exact string.
+</USER_SETTINGS_CHANGE>
